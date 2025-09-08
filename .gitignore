@@ -9,7 +9,9 @@ vendor/
 
 #input-output files
 input/*
+!input/.gitkeep
 output/*
+!output/.gitkeep
 
 # Build outputs
 dist/
