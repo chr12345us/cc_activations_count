@@ -1,0 +1,35 @@
+# Environment variables
+.env
+.env.local
+.env.production
+
+# Dependencies
+node_modules/
+vendor/
+
+#input-output files
+input/*
+output/*
+
+# Build outputs
+dist/
+build/
+out/
+
+# Logs
+*.log
+logs/
+
+# Database files
+*.db
+*.sqlite
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.sublime-*
