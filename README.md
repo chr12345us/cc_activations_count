@@ -1,1 +1,3 @@
-"# cc_activations_count" 
+# Activations Report Builder
+
+See script for usage.
