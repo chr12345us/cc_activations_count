@@ -2,6 +2,12 @@
 
 Generate a filtered text log and a polished Excel report (with a banded “Summary” table and totals) from Vision/DFC alert logs, optionally enriched from a CSV by `attackIpsId`.
 
+## Required files:
+1. alert.log - this is the file that is in thge "logs" folder in the "Support File" from CC+
+2. the "Database" file from the monthjly report, a csv file that has all the attacks with details for the month.
+
+Place these two files in the ./input folder
+
 ## 🧭 What it does
 
 1. **Filter** the raw log (`./input/alert.txt`) by:
