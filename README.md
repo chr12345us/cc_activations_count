@@ -1,6 +1,14 @@
- Activations Report Builder
+## Project
+Activations Report Builder
 
 Generate a filtered text log and a polished Excel report (with a banded “Summary” table and totals) from Vision/DFC alert logs, optionally enriched from a CSV by `attackIpsId`.
+
+## Version
+Current version: **1.0.0**
+
+### Changelog
+- v1.0.0 - Initial release
+
 
 ## Required files:
 1. alert.log - this is the file that is in thge "logs" folder in the "Support File" from CC+
