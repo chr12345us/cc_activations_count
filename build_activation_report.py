@@ -28,7 +28,7 @@ import pandas as pd
 
 # ---------------------------------------------------------------------
 # Parameters (edit these)
-cur_month = "2025-08"
+cur_month = "2025-09"
 activation_str = "triggered up operation SmartTapDivert-EU1"
 # ---------------------------------------------------------------------
 
