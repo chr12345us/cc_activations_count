@@ -35,3 +35,8 @@ logs/
 .vscode/
 .idea/
 *.sublime-*
+
+#ini files
+*.ini
+*.cfg
+*.conf

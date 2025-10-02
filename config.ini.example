@@ -1,0 +1,13 @@
+[GENERAL]
+cur_month = 10-2025
+csv_file_prefix = database_EA_
+csv_file_suffix = .csv
+
+[FILTERS]
+excluded_attack_names = Memcached-Server-Reflect
+
+[DEVICE_NAMES]
+10.74.224.50 = "Dublin(EU1)"
+10.76.4.241 = "Sterling(IAD1)"
+
+
