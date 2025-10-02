@@ -3,6 +3,12 @@
 """
 Build an activations report from a Vision/DFC log.
 
+Configuration:
+- Parameters are read from config.ini file
+- cur_month: Target month in MM-YYYY format (converted internally to YYYY-MM)
+- activation_str: Text string to filter activation events
+- csv_file_prefix/suffix: Pattern for CSV file matching
+
 Steps:
 1) Filter lines by month prefix (YYYY-MM) and activation text.
 2) Save filtered lines to ./output/alert-filtered-YYYY-MM.txt.
@@ -25,12 +31,27 @@ import sys
 from pathlib import Path
 from datetime import datetime
 import pandas as pd
+import configparser
 
-# ---------------------------------------------------------------------
-# Parameters (edit these)
-cur_month = "2025-09"
-activation_str = "triggered up operation SmartTapDivert-EU1"
-# ---------------------------------------------------------------------
+# Load configuration
+config = configparser.ConfigParser()
+config_file = Path("config.ini")
+if not config_file.exists():
+    sys.exit(f"ERROR: Configuration file not found: {config_file}")
+config.read(config_file)
+
+# Get parameters from config
+cur_month_config = config.get('GENERAL', 'cur_month')
+activation_str = config.get('GENERAL', 'activation_str')
+csv_file_prefix = config.get('GENERAL', 'csv_file_prefix', fallback='database_EA_')
+csv_file_suffix = config.get('GENERAL', 'csv_file_suffix', fallback='.csv')
+
+# Convert mm-yyyy format to yyyy-mm for internal processing
+if '-' in cur_month_config:
+    month_part, year_part = cur_month_config.split('-')
+    cur_month = f"{year_part}-{month_part.zfill(2)}"
+else:
+    cur_month = cur_month_config
 
 # Regexes for parsing the text lines
 DATE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})")
@@ -53,13 +74,22 @@ def prev_next_month(ym: str):
     return prev, nxt
 
 def load_first_csv(input_dir: Path) -> pd.DataFrame | None:
-    csv_files = sorted(input_dir.glob("*.csv"))
+    # Try to find CSV file matching the current month pattern
+    # Convert from YYYY-MM to MM_YYYY format for file matching
+    year, month = cur_month.split('-')
+    month_pattern = f"{csv_file_prefix}{month}_{year}{csv_file_suffix}"
+    csv_files = sorted(input_dir.glob(month_pattern))
+    
+    # If no month-specific file found, fall back to any CSV file
+    if not csv_files:
+        csv_files = sorted(input_dir.glob("*.csv"))
+        
     if not csv_files:
         print("NOTE: No CSV found in ./input — proceeding without enrichment.")
         return None
     csv_path = csv_files[0]
     try:
-        df = pd.read_csv(csv_path)
+        df = pd.read_csv(csv_path, low_memory=False)
         print(f"Using CSV: {csv_path.name}")
         # Normalize column names to exact expected ones if case differs
         colmap = {c.lower(): c for c in df.columns}
