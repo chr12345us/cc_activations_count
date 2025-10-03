@@ -125,7 +125,7 @@ def load_csv_data(input_dir, month, year):
         return pd.DataFrame()
     
     try:
-        df = pd.read_csv(csv_file, low_memory=False)
+        df = pd.read_csv(csv_file)
         print(f"Loaded: {csv_file.name} ({len(df)} rows)")
         return df
     except Exception as e:
@@ -243,7 +243,7 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
             value = total_counts_df.loc[total_counts_df['Device Name'] == device, month].values
             val = int(value[0]) if len(value) > 0 else 0
             row.append(val)
-            row.append(f'{val:,}' if val > 0 else '')  # Annotation with comma formatting
+            row.append(str(val) if val > 0 else '')  # Annotation
         total_data_rows.append(row)
     
     # Same for filtered data
@@ -259,7 +259,7 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
             value = filtered_counts_df.loc[filtered_counts_df['Device Name'] == device, month].values
             val = int(value[0]) if len(value) > 0 else 0
             row.append(val)
-            row.append(f'{val:,}' if val > 0 else '')  # Annotation with comma formatting
+            row.append(str(val) if val > 0 else '')  # Annotation
         filtered_data_rows.append(row)
     
     # Calculate max values for Y-axis with 25% extra space
@@ -299,7 +299,7 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
     
     colors = generate_device_colors(len(devices))
 
-    # HTML template with Google Charts - Simple Version
+    # HTML template with Google Charts
     html_content = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -329,6 +329,35 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
             border-radius: 10px;
+        }}
+        .controls {{
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }}
+        .controls h3 {{
+            margin: 0 0 15px 0;
+            color: #495057;
+        }}
+        .device-checkboxes {{
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 10px 0;
+        }}
+        .device-checkbox {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .device-checkbox input[type="checkbox"] {{
+            transform: scale(1.2);
+        }}
+        .device-checkbox label {{
+            font-weight: 500;
+            cursor: pointer;
         }}
         .chart-section {{
             margin: 30px 0;
@@ -361,6 +390,19 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
             <p><strong>Period:</strong> {months[0]} to {months[-1]}</p>
         </div>
 
+        <div class="controls">
+            <h3>Display Options</h3>
+            
+            <div class="device-checkboxes">
+                <strong>Devices to Show:</strong>
+                <button onclick="selectAllDevices()" style="margin-left: 10px; padding: 5px 10px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer;">Select All</button>
+                <button onclick="deselectAllDevices()" style="margin-left: 5px; padding: 5px 10px; background: #6c757d; color: white; border: none; border-radius: 3px; cursor: pointer;">Deselect All</button>
+            </div>
+            <div class="device-checkboxes" id="deviceCheckboxes">
+                <!-- Device checkboxes will be populated by JavaScript -->
+            </div>
+        </div>
+
         <div class="chart-section">
             <div class="chart-container">
                 <div id="totalChart"></div>
@@ -380,19 +422,40 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
     <script type="text/javascript">
         // Load Google Charts
         google.charts.load('current', {{'packages':['corechart']}});
-        google.charts.setOnLoadCallback(drawCharts);
+        google.charts.setOnLoadCallback(initializeCharts);
 
         // Data from Python
+        const devices = {json.dumps(devices)};
+        const months = {json.dumps(months)};
         const totalDataArray = {json.dumps([total_header] + total_data_rows)};
         const filteredDataArray = {json.dumps([filtered_header] + filtered_data_rows)};
         const totalChartMax = {total_chart_max};
         const filteredChartMax = {filtered_chart_max};
         const colors = {json.dumps(colors)};
 
-        function drawCharts() {{
+        let totalChart, filteredChart;
+        let totalDataTable, filteredDataTable;
+        let originalTotalData, originalFilteredData;
+
+        function initializeCharts() {{
             // Create DataTables from arrays
-            const totalData = google.visualization.arrayToDataTable(totalDataArray);
-            const filteredData = google.visualization.arrayToDataTable(filteredDataArray);
+            originalTotalData = google.visualization.arrayToDataTable(totalDataArray);
+            originalFilteredData = google.visualization.arrayToDataTable(filteredDataArray);
+            
+            // Clone for manipulation
+            totalDataTable = originalTotalData.clone();
+            filteredDataTable = originalFilteredData.clone();
+
+            // Create device checkboxes
+            createDeviceCheckboxes();
+
+            // Draw initial charts
+            drawCharts();
+        }}
+
+        function drawCharts() {{
+            // Update data tables with device filtering
+            updateDataTables();
 
             // Total chart options
             const totalOptions = {{
@@ -487,11 +550,114 @@ def create_html_graphs(total_counts_df, filtered_counts_df, output_file_html):
             }};
 
             // Create and draw charts
-            const totalChart = new google.visualization.ColumnChart(document.getElementById('totalChart'));
-            const filteredChart = new google.visualization.ColumnChart(document.getElementById('filteredChart'));
+            totalChart = new google.visualization.ColumnChart(document.getElementById('totalChart'));
+            filteredChart = new google.visualization.ColumnChart(document.getElementById('filteredChart'));
 
-            totalChart.draw(totalData, totalOptions);
-            filteredChart.draw(filteredData, filteredOptions);
+            totalChart.draw(totalDataTable, totalOptions);
+            filteredChart.draw(filteredDataTable, filteredOptions);
+        }}
+
+        function createDeviceCheckboxes() {{
+            const container = document.getElementById('deviceCheckboxes');
+            devices.forEach((device, index) => {{
+                const div = document.createElement('div');
+                div.className = 'device-checkbox';
+                div.innerHTML = `
+                    <input type="checkbox" id="device${{index}}" checked onchange="toggleDevice(${{index}})">
+                    <label for="device${{index}}" style="color: ${{colors[index]}}">■ ${{device}}</label>
+                `;
+                container.appendChild(div);
+            }});
+        }}
+
+        function toggleDevice(deviceIndex) {{
+            updateDataTables();
+            drawCharts();
+        }}
+
+        function updateDataTables() {{
+            // Get which devices are selected
+            const selectedDevices = [];
+            devices.forEach((device, index) => {{
+                const checkbox = document.getElementById(`device${{index}}`);
+                if (checkbox.checked) {{
+                    // Google Charts with annotations: each device has 2 columns (value + annotation)
+                    selectedDevices.push(index * 2 + 1); // +1 because column 0 is months
+                    selectedDevices.push(index * 2 + 2); // annotation column
+                }}
+            }});
+
+            // Create new DataTables with only selected columns
+            if (selectedDevices.length === 0) {{
+                // If no devices selected, show empty chart with just months
+                totalDataTable = new google.visualization.DataTable();
+                totalDataTable.addColumn('string', 'Month');
+                filteredDataTable = new google.visualization.DataTable();
+                filteredDataTable.addColumn('string', 'Month');
+                
+                for (let i = 1; i < originalTotalData.getNumberOfRows(); i++) {{
+                    totalDataTable.addRow([originalTotalData.getValue(i, 0)]);
+                    filteredDataTable.addRow([originalFilteredData.getValue(i, 0)]);
+                }}
+            }} else {{
+                // Create new tables with selected columns
+                totalDataTable = new google.visualization.DataTable();
+                filteredDataTable = new google.visualization.DataTable();
+                
+                // Add month column
+                totalDataTable.addColumn('string', 'Month');
+                filteredDataTable.addColumn('string', 'Month');
+                
+                // Add selected device columns (value + annotation pairs)
+                for (let i = 0; i < selectedDevices.length; i += 2) {{
+                    const valueColIndex = selectedDevices[i];
+                    const annotationColIndex = selectedDevices[i + 1];
+                    
+                    const deviceName = originalTotalData.getColumnLabel(valueColIndex);
+                    totalDataTable.addColumn('number', deviceName);
+                    totalDataTable.addColumn(originalTotalData.getColumnType(annotationColIndex), 
+                                           originalTotalData.getColumnLabel(annotationColIndex), 
+                                           originalTotalData.getColumnId(annotationColIndex));
+                    
+                    filteredDataTable.addColumn('number', deviceName);
+                    filteredDataTable.addColumn(originalFilteredData.getColumnType(annotationColIndex), 
+                                              originalFilteredData.getColumnLabel(annotationColIndex), 
+                                              originalFilteredData.getColumnId(annotationColIndex));
+                }}
+                
+                // Add data rows
+                for (let i = 1; i < originalTotalData.getNumberOfRows(); i++) {{
+                    const totalRow = [originalTotalData.getValue(i, 0)];
+                    const filteredRow = [originalFilteredData.getValue(i, 0)];
+                    
+                    for (let j = 0; j < selectedDevices.length; j++) {{
+                        const colIndex = selectedDevices[j];
+                        totalRow.push(originalTotalData.getValue(i, colIndex));
+                        filteredRow.push(originalFilteredData.getValue(i, colIndex));
+                    }}
+                    
+                    totalDataTable.addRow(totalRow);
+                    filteredDataTable.addRow(filteredRow);
+                }}
+            }}
+        }}
+
+        function selectAllDevices() {{
+            devices.forEach((_, index) => {{
+                const checkbox = document.getElementById(`device${{index}}`);
+                checkbox.checked = true;
+            }});
+            updateDataTables();
+            drawCharts();
+        }}
+
+        function deselectAllDevices() {{
+            devices.forEach((_, index) => {{
+                const checkbox = document.getElementById(`device${{index}}`);
+                checkbox.checked = false;
+            }});
+            updateDataTables();
+            drawCharts();
         }}
     </script>
 </body>
